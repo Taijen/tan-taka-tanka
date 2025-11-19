@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>短歌ポートフォリオ - 始まりの空白</title>
+   
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* === Base Reset === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+        html { 
+            scrollbar-width: none; 
+            background-color: #f9f9f7; 
+        }
+
+        body {
+            height: 400vh; 
+            background-color: #f9f9f7;
+            margin: 0;
+            overflow-x: hidden;
+            cursor: default;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* === Fixed Stage === */
+        #stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* === Background Noise === */
+        #stage::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            opacity: 0.8;
+            z-index: -1;
+        }
+
+        /* === Tanka Wrapper === */
+        #tanka-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* === Tanka Part === */
+        .tanka-part {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+           
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+           
+            display: inline-block;
+            white-space: nowrap; 
+            text-align: center;
+           
+            height: auto; 
+            max-height: 85vh; 
+           
+            font-family: 'Shippori Mincho', serif;
+            font-weight: 500;
+            color: #1a1a1a;
+            text-shadow: 0 0 1px rgba(0,0,0,0.15);
+           
+            font-size: 16px;
+            letter-spacing: 0.4em; 
+           
+            will-change: transform, opacity;
+        }
+       
+        .tanka-part:first-child {
+            left: 50%; 
+            margin-left: 1.5vw; 
+        }
+
+        .tanka-part:last-child {
+            right: 50%; 
+            margin-right: 1.5vw; 
+        }
+       
+        @media (max-width: 768px) {
+            .tanka-part:first-child {
+                margin-left: 4vw; 
+            }
+            .tanka-part:last-child {
+                margin-right: 4vw; 
+            }
+        }
+
+        /* === Character === */
+        .char {
+            display: inline-block;
+            vertical-align: middle;
+           
+            opacity: 0;
+            transform: translateY(-20px) scale(0.92);
+            filter: blur(6px);
+            will-change: transform, opacity, filter;
+
+            margin-top: 0.3em; 
+            line-height: 1; 
+        }
+        .char:first-child {
+            margin-top: 0;
+        }
+
+        /* === Veil === */
+        #veil {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #f9f9f7;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        #veil.active {
+            opacity: 1;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="veil"></div>
+   
+    <div id="stage">
+        <div id="tanka-wrapper"></div>
+    </div>
+   
+    <script>
+        // ★短歌リスト（ここに追記していく）
+        // ※配列自体は const ですが、中身をシャッフルするためにコピーして使います
+        const sourceTankaList = [
+            ["保菌せし我が子駆け出しクラスター", "明日は我が身と震えて眠る"],
+           
+            // ↓ここに新しい短歌を足してね！
+            // ["新しい上の句", "新しい下の句"],
+        ];
+
+        // シャッフル後のリストを格納する変数
+        let tankaList = [];
+
+        let currentIndex = 0;
+        let isTransitioning = false;
+        const wrapper = document.getElementById('tanka-wrapper');
+        const veil = document.getElementById('veil');
+       
+        let allCharElements = []; 
+
+        let targetScroll = 0;
+        let currentScroll = 0;
+        const lerpFactor = 0.045; 
+
+        // ★シャッフル関数（フィッシャー–イェーツのアルゴリズム）
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function adjustTypography(tankaParts) {
+            const viewportHeight = window.innerHeight;
+            const paddingVh = 20; 
+            const availableHeightVh = 100 - paddingVh; 
+           
+            const longestPartLength = Math.max(tankaParts[0].length, tankaParts[1].length);
+
+            let fontSizePx = Math.min(
+                24, 
+                (viewportHeight * availableHeightVh / 100) / (longestPartLength + (longestPartLength - 1) * 0.3)
+            );
+            fontSizePx = Math.max(14, fontSizePx); 
+
+            let charMarginTopEm = 0.35; 
+            if (longestPartLength > 15) {
+                charMarginTopEm = Math.max(0.15, 0.35 - ((longestPartLength - 15) * 0.015));
+            }
+
+            const partElements = wrapper.querySelectorAll('.tanka-part');
+            partElements.forEach(part => {
+                part.style.fontSize = `${fontSizePx}px`;
+            });
+
+            const charSpans = wrapper.querySelectorAll('.char');
+            charSpans.forEach(char => {
+                char.style.marginTop = `${charMarginTopEm}em`;
+            });
+            wrapper.querySelectorAll('.tanka-part .char:first-child').forEach(firstChar => {
+                firstChar.style.marginTop = '0';
+            });
+        }
+
+        function init() {
+            // ★初期化時にリストをコピーしてシャッフル
+            tankaList = shuffleArray([...sourceTankaList]);
+
+            loadTanka(0);
+           
+            window.addEventListener('scroll', () => {
+                targetScroll = window.scrollY;
+            });
+           
+            window.addEventListener('resize', () => {
+                if (tankaList[currentIndex]) adjustTypography(tankaList[currentIndex]);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        function loadTanka(index) {
+            wrapper.innerHTML = '';
+            allCharElements = [];
+            const currentTanka = tankaList[index];
+
+            currentTanka.forEach((partText, partIndex) => {
+                const partDiv = document.createElement('div');
+                partDiv.classList.add('tanka-part');
+                partDiv.dataset.partIndex = partIndex; 
+
+                Array.from(partText).forEach(char => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    span.classList.add('char');
+                    partDiv.appendChild(span);
+                    allCharElements.push(span);
+                });
+                wrapper.appendChild(partDiv);
+            });
+
+            adjustTypography(currentTanka);
+
+            if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+            window.scrollTo(0, 0);
+            targetScroll = 0;
+            currentScroll = 0;
+        }
+
+        function animate() {
+            currentScroll += (targetScroll - currentScroll) * lerpFactor;
+           
+            if (Math.abs(targetScroll - currentScroll) < 0.05) {
+                currentScroll = targetScroll;
+            }
+           
+            updateVisuals(currentScroll);
+            requestAnimationFrame(animate);
+        }
+
+        function updateVisuals(scrollTop) {
+            if (isTransitioning) return;
+
+            const winHeight = window.innerHeight;
+            const docHeight = document.body.scrollHeight;
+            const maxScroll = docHeight - winHeight;
+           
+            let progress = Math.max(0, Math.min(1, scrollTop / maxScroll));
+
+            const firstPartChars = tankaList[currentIndex][0].length; 
+            const firstPartRevealStart = 0;
+            const firstPartRevealEnd = 0.45; 
+            const secondPartRevealStart = 0.55; 
+            const secondPartRevealEnd = 0.95;
+
+            allCharElements.forEach((char, i) => {
+                let charProgress = 0; 
+                let revealRangeStart, revealRangeEnd;
+
+                if (i < firstPartChars) { 
+                    revealRangeStart = firstPartRevealStart;
+                    revealRangeEnd = firstPartRevealEnd;
+                } else { 
+                    revealRangeStart = secondPartRevealStart;
+                    revealRangeEnd = secondPartRevealEnd;
+                }
+
+                if (progress >= revealRangeStart && progress <= revealRangeEnd) {
+                    charProgress = Math.max(0, Math.min(1, 
+                        (progress - revealRangeStart) / (revealRangeEnd - revealRangeStart)
+                    ));
+                } else if (progress > revealRangeEnd) {
+                    charProgress = 1;
+                }
+               
+                const charAlpha = Math.max(0, Math.min(1, charProgress * 1.1 + (i === 0 ? 0.15 : 0)));
+               
+                if (charAlpha > 0) {
+                    char.style.opacity = charAlpha;
+                    const yOffset = (1 - charAlpha) * -25;
+                    const scale = 0.92 + (charAlpha * 0.08);
+                    const blur = (1 - charAlpha) * 8;
+
+                    char.style.transform = `translateY(${yOffset}px) scale(${scale})`;
+                    char.style.filter = `blur(${blur}px)`;
+                } else {
+                    char.style.opacity = 0;
+                }
+            });
+
+            if (progress > 0.99) {
+                goToNextTanka();
+            }
+        }
+
+        function goToNextTanka() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+
+            veil.classList.add('active');
+
+            setTimeout(() => {
+                currentIndex++;
+                if (currentIndex >= tankaList.length) {
+                    // ★一周したら再度シャッフルして、ランダムさを維持する
+                    tankaList = shuffleArray([...sourceTankaList]);
+                    currentIndex = 0;
+                }
+                loadTanka(currentIndex);
+
+                setTimeout(() => {
+                    veil.classList.remove('active');
+                    isTransitioning = false;
+                }, 500);
+            }, 800);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
