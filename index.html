@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="format-detection" content="telephone=no">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>短歌ポートフォリオ - 幼獣たちの寝るところ</title>
+    <title>短歌ポートフォリオ</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* スクロールバー完全隠蔽 */
         ::-webkit-scrollbar { display: none; }
         html { 
             scrollbar-width: none; 
@@ -67,7 +66,7 @@
             height: 100%;
         }
 
-        /* === Tanka Part (各句のブロック) === */
+        /* === Tanka Part === */
         .tanka-part {
             position: absolute;
             top: 50%;
@@ -76,7 +75,6 @@
             writing-mode: vertical-rl;
             text-orientation: upright;
             
-            /* 改行禁止設定 */
             display: inline-block;
             white-space: nowrap; 
             text-align: center;
@@ -90,24 +88,23 @@
             text-shadow: 0 0 1px rgba(0,0,0,0.15);
             
             font-size: 16px;
-            letter-spacing: 0.4em;
+            letter-spacing: 0.4em; 
             
             will-change: transform, opacity;
         }
         
-        /* 上句（五七五）: 右側配置 */
+        /* 上句（五七五） */
         .tanka-part:first-child {
             left: 50%; 
-            margin-left: 1.5vw; /* 密着させるための距離 */
+            margin-left: 1.5vw; 
         }
 
-        /* 下句（七七）: 左側配置 */
+        /* 下句（七七） */
         .tanka-part:last-child {
             right: 50%; 
             margin-right: 1.5vw; 
         }
         
-        /* スマホ用レイアウト調整 */
         @media (max-width: 768px) {
             .tanka-part:first-child {
                 margin-left: 4vw; 
@@ -123,8 +120,8 @@
             vertical-align: middle;
             
             opacity: 0;
-            transform: translateY(-20px) scale(0.92);
-            filter: blur(6px);
+            transform: translateY(-25px) scale(0.9);
+            filter: blur(8px);
             will-change: transform, opacity, filter;
 
             margin-top: 0.3em; 
@@ -134,7 +131,7 @@
             margin-top: 0;
         }
 
-        /* === Veil (Transition) === */
+        /* === Veil === */
         #veil {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -159,13 +156,12 @@
     </div>
     
     <script>
-        // ★ここに短歌のデータが入ってるよ！
-        // カンマの打ち忘れがないか、カッコが閉じているか、完璧に調整済み。
-        const tankaList = [
+        const sourceTankaList = [
             ["滅菌のガーゼのような夜明け前", "わたしを削り命を磨く"],
             ["治癒という名の暴力を携えて", "三頭身ゆく全滅の野を"]
         ];
 
+        let tankaList = [];
         let currentIndex = 0;
         let isTransitioning = false;
         const wrapper = document.getElementById('tanka-wrapper');
@@ -173,19 +169,195 @@
         
         let allCharElements = []; 
 
-        // 慣性スクロール変数
         let targetScroll = 0;
         let currentScroll = 0;
-        const lerpFactor = 0.045; // 滑らかさ重視
+        const lerpFactor = 0.045; 
+
+        // シャッフル関数
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
 
         function adjustTypography(tankaParts) {
             const viewportHeight = window.innerHeight;
-            const paddingVh = 20;
+            const paddingVh = 20; 
             const availableHeightVh = 100 - paddingVh; 
             
             const longestPartLength = Math.max(tankaParts[0].length, tankaParts[1].length);
 
-            // フォントサイズ計算
             let fontSizePx = Math.min(
                 24, 
-                (viewportHeight * availableHeightVh / 10
+                (viewportHeight * availableHeightVh / 100) / (longestPartLength + (longestPartLength - 1) * 0.3)
+            );
+            fontSizePx = Math.max(14, fontSizePx); 
+
+            let charMarginTopEm = 0.35; 
+            if (longestPartLength > 15) {
+                charMarginTopEm = Math.max(0.15, 0.35 - ((longestPartLength - 15) * 0.015));
+            }
+
+            const partElements = wrapper.querySelectorAll('.tanka-part');
+            partElements.forEach(part => {
+                part.style.fontSize = `${fontSizePx}px`;
+            });
+
+            const charSpans = wrapper.querySelectorAll('.char');
+            charSpans.forEach(char => {
+                char.style.marginTop = `${charMarginTopEm}em`;
+            });
+            wrapper.querySelectorAll('.tanka-part .char:first-child').forEach(firstChar => {
+                firstChar.style.marginTop = '0';
+            });
+        }
+
+        function init() {
+            tankaList = shuffleArray([...sourceTankaList]);
+            loadTanka(0);
+            
+            window.addEventListener('scroll', () => {
+                targetScroll = window.scrollY;
+            });
+            
+            window.addEventListener('resize', () => {
+                if (tankaList[currentIndex]) adjustTypography(tankaList[currentIndex]);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        function loadTanka(index) {
+            wrapper.innerHTML = '';
+            allCharElements = [];
+            const currentTanka = tankaList[index];
+
+            currentTanka.forEach((partText, partIndex) => {
+                const partDiv = document.createElement('div');
+                partDiv.classList.add('tanka-part');
+                // data-indexを追加してパートを識別
+                partDiv.dataset.partIndex = partIndex; 
+
+                Array.from(partText).forEach((char, charIndex) => {
+                    const span = document.createElement('span');
+                    span.textContent = char;
+                    span.classList.add('char');
+                    
+                    // アニメーション用メタデータ
+                    span.dataset.part = partIndex; // 0:上句, 1:下句
+                    span.dataset.index = charIndex; // その句の中での順番
+                    
+                    partDiv.appendChild(span);
+                    allCharElements.push(span);
+                });
+                wrapper.appendChild(partDiv);
+            });
+
+            adjustTypography(currentTanka);
+
+            if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+            window.scrollTo(0, 0);
+            targetScroll = 0;
+            currentScroll = 0;
+        }
+
+        function animate() {
+            currentScroll += (targetScroll - currentScroll) * lerpFactor;
+            if (Math.abs(targetScroll - currentScroll) < 0.05) {
+                currentScroll = targetScroll;
+            }
+            updateVisuals(currentScroll);
+            requestAnimationFrame(animate);
+        }
+
+        function updateVisuals(scrollTop) {
+            if (isTransitioning) return;
+
+            const winHeight = window.innerHeight;
+            const docHeight = document.body.scrollHeight;
+            const maxScroll = docHeight - winHeight;
+            
+            let progress = Math.max(0, Math.min(1, scrollTop / maxScroll));
+
+            // 表示範囲の設定
+            const firstPartRange = [0.02, 0.45]; // 上句の開始〜終了
+            const secondPartRange = [0.55, 0.98]; // 下句の開始〜終了
+
+            const firstPartLength = tankaList[currentIndex][0].length;
+            const secondPartLength = tankaList[currentIndex][1].length;
+
+            allCharElements.forEach((char) => {
+                const part = parseInt(char.dataset.part);
+                const idx = parseInt(char.dataset.index);
+                const totalInPart = (part === 0) ? firstPartLength : secondPartLength;
+                const range = (part === 0) ? firstPartRange : secondPartRange;
+
+                // このパート内での相対進捗 (0.0〜1.0)
+                let relativeProgress = 0;
+                if (progress >= range[0] && progress <= range[1]) {
+                    relativeProgress = (progress - range[0]) / (range[1] - range[0]);
+                } else if (progress > range[1]) {
+                    relativeProgress = 1;
+                }
+
+                // ★Raindrop計算：文字ごとに少しずつ遅らせて表示
+                // progressが 0.0〜1.0 になる間に、index 0〜N までを順に 0〜1 にする
+                // 係数 1.2 で少し早めに完了させ、余韻を作る
+                const charProgress = relativeProgress * (1 + (totalInPart * 0.1)) - (idx * 0.1);
+                
+                // 0.0〜1.0にクランプ
+                const alpha = Math.max(0, Math.min(1, charProgress));
+                
+                // 初期表示のアフォーダンス（最初の文字だけうっすら見せる）
+                // const baseAlpha = (part === 0 && idx === 0) ? 0.1 : 0; 
+                // 今回は完全に隠して、スクロールで出る快感を重視
+                
+                if (alpha > 0) {
+                    char.style.opacity = alpha;
+                    // 上から降りてくる距離
+                    const yOffset = (1 - alpha) * -25;
+                    // 縮小しながら登場
+                    const scale = 0.9 + (alpha * 0.1);
+                    // ボカシが晴れる
+                    const blur = (1 - alpha) * 10;
+
+                    char.style.transform = `translateY(${yOffset}px) scale(${scale})`;
+                    char.style.filter = `blur(${blur}px)`;
+                } else {
+                    char.style.opacity = 0;
+                }
+            });
+
+            if (progress > 0.99) {
+                goToNextTanka();
+            }
+        }
+
+        function goToNextTanka() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+
+            veil.classList.add('active');
+
+            setTimeout(() => {
+                currentIndex++;
+                if (currentIndex >= tankaList.length) {
+                    tankaList = shuffleArray([...sourceTankaList]);
+                    currentIndex = 0;
+                }
+                loadTanka(currentIndex);
+
+                setTimeout(() => {
+                    veil.classList.remove('active');
+                    isTransitioning = false;
+                }, 500);
+            }, 800);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
