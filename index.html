@@ -4,7 +4,19 @@
     <meta charset="UTF-8">
     <meta name="format-detection" content="telephone=no">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <title>怪獣たちの眠るとこ</title>
+
+    <meta property="og:title" content="怪獣たちの眠るとこ">
+    <meta property="og:type" content="website">
+    <meta property="og:description" content="静寂とノイズの狭間で読む、短歌ポートフォリオ。">
+    <meta property="og:site_name" content="怪獣たちの眠るとこ">
+    
+    <meta property="og:url" content="https://あなたのサイトID.netlify.app">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="怪獣たちの眠るとこ">
+    <meta name="twitter:description" content="静寂とノイズの狭間で読む、短歌ポートフォリオ。">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +31,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* スクロールバー完全隠蔽 */
         ::-webkit-scrollbar { display: none; }
         html { 
             scrollbar-width: none; 
@@ -67,7 +78,7 @@
             height: 100%;
         }
 
-        /* === Tanka Part (各句のブロック) === */
+        /* === Tanka Part === */
         .tanka-part {
             position: absolute;
             top: 50%;
@@ -76,7 +87,6 @@
             writing-mode: vertical-rl;
             text-orientation: upright;
             
-            /* 改行禁止設定 */
             display: inline-block;
             white-space: nowrap; 
             text-align: center;
@@ -90,24 +100,21 @@
             text-shadow: 0 0 1px rgba(0,0,0,0.15);
             
             font-size: 16px;
-            letter-spacing: 0.4em;
+            letter-spacing: 0.4em; 
             
             will-change: transform, opacity;
         }
         
-        /* 上句（五七五）: 右側配置 */
         .tanka-part:first-child {
             left: 50%; 
             margin-left: 1.5vw; 
         }
 
-        /* 下句（七七）: 左側配置 */
         .tanka-part:last-child {
             right: 50%; 
             margin-right: 1.5vw; 
         }
         
-        /* スマホ用レイアウト調整 */
         @media (max-width: 768px) {
             .tanka-part:first-child {
                 margin-left: 4vw; 
@@ -121,12 +128,10 @@
         .char {
             display: inline-block;
             vertical-align: middle;
-            
             opacity: 0;
             transform: translateY(-25px) scale(0.9);
             filter: blur(8px);
             will-change: transform, opacity, filter;
-
             margin-top: 0.3em; 
             line-height: 1; 
         }
@@ -134,7 +139,7 @@
             margin-top: 0;
         }
 
-        /* === Veil (Transition) === */
+        /* === Veil === */
         #veil {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -148,6 +153,30 @@
             opacity: 1;
         }
 
+        /* === Scroll Guide (一筋の雨) === */
+        #scroll-guide {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            width: 1px;
+            height: 80px; 
+            background: linear-gradient(to bottom, rgba(26,26,26,0.3), transparent);
+            z-index: 15;
+            pointer-events: none;
+            
+            opacity: 0;
+            transform-origin: top;
+            animation: flow-line 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            transition: opacity 0.5s;
+        }
+
+        @keyframes flow-line {
+            0% { transform: scaleY(0); opacity: 0; }
+            30% { transform: scaleY(1); opacity: 0.4; transform-origin: top; }
+            31% { transform-origin: bottom; }
+            100% { transform: scaleY(0); opacity: 0; transform-origin: bottom; }
+        }
+
     </style>
 </head>
 <body>
@@ -158,8 +187,9 @@
         <div id="tanka-wrapper"></div>
     </div>
     
+    <div id="scroll-guide"></div>
+    
     <script>
-        // ★最強の短歌コレクション
         const sourceTankaList = [
             ["滅菌のガーゼのような夜明け前", "わたしを削り命を磨く"],
             ["治癒という名の暴力を携えて", "三頭身ゆく全滅の野を"],
@@ -170,201 +200,4 @@
             ["冷めていくこともひとつの味だから", "焦る世界を君は笑った"],
             ["陽だまりを食べているのと変わらない", "ふっくらとした時間の余白"],
             ["リチウムの熱暴走に似た命", "充電不可の怒りをはなつ"],
-            ["体温の不法投棄だ生温い", "液体そっと抱く朝"],
-            ["プリズムを通せば違う色になる", "光の束としてそこに居る"]
-        ];
-
-        let tankaList = [];
-        let currentIndex = 0;
-        let isTransitioning = false;
-        const wrapper = document.getElementById('tanka-wrapper');
-        const veil = document.getElementById('veil');
-        
-        let allCharElements = []; 
-
-        let targetScroll = 0;
-        let currentScroll = 0;
-        const lerpFactor = 0.045; 
-
-        // シャッフル関数
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-
-        function adjustTypography(tankaParts) {
-            const viewportHeight = window.innerHeight;
-            const paddingVh = 20; 
-            const availableHeightVh = 100 - paddingVh; 
-            
-            const longestPartLength = Math.max(tankaParts[0].length, tankaParts[1].length);
-
-            let fontSizePx = Math.min(
-                24, 
-                (viewportHeight * availableHeightVh / 100) / (longestPartLength + (longestPartLength - 1) * 0.3)
-            );
-            fontSizePx = Math.max(14, fontSizePx); 
-
-            let charMarginTopEm = 0.35; 
-            if (longestPartLength > 15) {
-                charMarginTopEm = Math.max(0.15, 0.35 - ((longestPartLength - 15) * 0.015));
-            }
-
-            const partElements = wrapper.querySelectorAll('.tanka-part');
-            partElements.forEach(part => {
-                part.style.fontSize = `${fontSizePx}px`;
-            });
-
-            const charSpans = wrapper.querySelectorAll('.char');
-            charSpans.forEach(char => {
-                char.style.marginTop = `${charMarginTopEm}em`;
-            });
-            wrapper.querySelectorAll('.tanka-part .char:first-child').forEach(firstChar => {
-                firstChar.style.marginTop = '0';
-            });
-        }
-
-        function init() {
-            tankaList = shuffleArray([...sourceTankaList]);
-            loadTanka(0);
-            
-            window.addEventListener('scroll', () => {
-                targetScroll = window.scrollY;
-            });
-            
-            window.addEventListener('resize', () => {
-                if (tankaList[currentIndex]) adjustTypography(tankaList[currentIndex]);
-            });
-
-            requestAnimationFrame(animate);
-        }
-
-        function loadTanka(index) {
-            wrapper.innerHTML = '';
-            allCharElements = [];
-            const currentTanka = tankaList[index];
-
-            currentTanka.forEach((partText, partIndex) => {
-                const partDiv = document.createElement('div');
-                partDiv.classList.add('tanka-part');
-                partDiv.dataset.partIndex = partIndex; 
-
-                Array.from(partText).forEach((char, charIndex) => {
-                    const span = document.createElement('span');
-                    span.textContent = char;
-                    span.classList.add('char');
-                    
-                    // アニメーション用メタデータ
-                    span.dataset.part = partIndex; // 0:上句, 1:下句
-                    span.dataset.index = charIndex; // その句の中での順番
-                    
-                    partDiv.appendChild(span);
-                    allCharElements.push(span);
-                });
-                wrapper.appendChild(partDiv);
-            });
-
-            adjustTypography(currentTanka);
-
-            if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-            window.scrollTo(0, 0);
-            targetScroll = 0;
-            currentScroll = 0;
-        }
-
-        function animate() {
-            currentScroll += (targetScroll - currentScroll) * lerpFactor;
-            if (Math.abs(targetScroll - currentScroll) < 0.05) {
-                currentScroll = targetScroll;
-            }
-            updateVisuals(currentScroll);
-            requestAnimationFrame(animate);
-        }
-
-        function updateVisuals(scrollTop) {
-            if (isTransitioning) return;
-
-            const winHeight = window.innerHeight;
-            const docHeight = document.body.scrollHeight;
-            const maxScroll = docHeight - winHeight;
-            
-            let progress = Math.max(0, Math.min(1, scrollTop / maxScroll));
-
-            // 表示範囲の設定
-            const firstPartRange = [0.02, 0.45]; // 上句の開始〜終了
-            const secondPartRange = [0.55, 0.98]; // 下句の開始〜終了
-
-            const firstPartLength = tankaList[currentIndex][0].length;
-            const secondPartLength = tankaList[currentIndex][1].length;
-
-            allCharElements.forEach((char) => {
-                const part = parseInt(char.dataset.part);
-                const idx = parseInt(char.dataset.index);
-                const totalInPart = (part === 0) ? firstPartLength : secondPartLength;
-                const range = (part === 0) ? firstPartRange : secondPartRange;
-
-                // このパート内での相対進捗 (0.0〜1.0)
-                let relativeProgress = 0;
-                if (progress >= range[0] && progress <= range[1]) {
-                    relativeProgress = (progress - range[0]) / (range[1] - range[0]);
-                } else if (progress > range[1]) {
-                    relativeProgress = 1;
-                }
-
-                // ★Raindrop計算：文字ごとに少しずつ遅らせて表示
-                // progressが 0.0〜1.0 になる間に、index 0〜N までを順に 0〜1 にする
-                const charProgress = relativeProgress * (1 + (totalInPart * 0.1)) - (idx * 0.1);
-                
-                // 0.0〜1.0にクランプ
-                const alpha = Math.max(0, Math.min(1, charProgress));
-                
-                if (alpha > 0) {
-                    char.style.opacity = alpha;
-                    // 上から降りてくる距離
-                    const yOffset = (1 - alpha) * -25;
-                    // 縮小しながら登場
-                    const scale = 0.9 + (alpha * 0.1);
-                    // ボカシが晴れる
-                    const blur = (1 - alpha) * 10;
-
-                    char.style.transform = `translateY(${yOffset}px) scale(${scale})`;
-                    char.style.filter = `blur(${blur}px)`;
-                } else {
-                    char.style.opacity = 0;
-                }
-            });
-
-            if (progress > 0.99) {
-                goToNextTanka();
-            }
-        }
-
-        function goToNextTanka() {
-            if (isTransitioning) return;
-            isTransitioning = true;
-
-            veil.classList.add('active');
-
-            setTimeout(() => {
-                currentIndex++;
-                if (currentIndex >= tankaList.length) {
-                    tankaList = shuffleArray([...sourceTankaList]);
-                    currentIndex = 0;
-                }
-                loadTanka(currentIndex);
-
-                setTimeout(() => {
-                    veil.classList.remove('active');
-                    isTransitioning = false;
-                }, 500);
-            }, 800);
-        }
-
-        init();
-
-    </script>
-</body>
-</html>
+            ["体温の不法投棄だ生温い
