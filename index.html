@@ -171,7 +171,7 @@
         #scroll-guide .line::after {
             content: "";
             position: absolute;
-            top: -100%;
+            bottom: -100%;
             left: 0;
             width: 100%;
             height: 100%;
@@ -180,10 +180,10 @@
         }
 
         @keyframes scroll-flow {
-            0%   { top: -100%; }
-            50%  { top: 100%; }
-            50.01% { top: -100%; }
-            100% { top: -100%; }
+            0%   { bottom: -100%; }
+            50%  { bottom: 100%; }
+            50.01% { bottom: -100%; }
+            100% { bottom: -100%; }
         }
     </style>
 </head>
@@ -197,8 +197,8 @@
 
     <!-- Scroll Guide -->
     <div id="scroll-guide">
-        <span class="label">scroll</span>
         <div class="line"></div>
+        <span class="label">scroll</span>
     </div>
 
     <script>
