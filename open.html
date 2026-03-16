@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obsidian へリダイレクト中...</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a2e; color: #e0e0e0; }
+        .container { text-align: center; padding: 2rem; }
+        .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top: 3px solid #7c3aed; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        a { color: #7c3aed; text-decoration: none; }
+        code { background: #2a2a3e; padding: 0.2em 0.5em; border-radius: 4px; font-size: 0.85em; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <p>Obsidian へリダイレクト中...</p>
+        <p id="fallback" style="display:none; margin-top: 2rem;">
+            自動で開かない場合:<br>
+            <a id="manual-link" href="#">ここをタップして開く</a><br><br>
+            <small>URI: <code id="uri-display"></code></small>
+        </p>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const file = params.get('file') || '';
+        const vault = params.get('vault') || 'Xaihi';
+
+        if (file) {
+            const uri = `obsidian://open?vault=${encodeURIComponent(vault)}&file=${file}`;
+            // Redirect
+            window.location.href = uri;
+            // Show fallback after 1.5s if redirect didn't work
+            setTimeout(() => {
+                document.getElementById('fallback').style.display = 'block';
+                document.getElementById('manual-link').href = uri;
+                document.getElementById('uri-display').textContent = decodeURIComponent(uri);
+            }, 1500);
+        } else {
+            document.querySelector('.spinner').style.display = 'none';
+            document.querySelector('.container p').textContent = 'file パラメータが指定されていません';
+        }
+    </script>
+</body>
+</html>
